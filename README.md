@@ -4,13 +4,11 @@
 - Includes both `FFmpeg` and `FFprobe`
 - Supports
   - Both `Android` and `iOS`
-  - FFmpeg `v6.0`
+  - FFmpeg `v4.5-dev` releases
   - `arm-v7a`, `arm-v7a-neon`, `arm64-v8a`, `x86` and `x86_64` architectures on Android
-  - `Android API Level 24` or later
-    - `API Level 16` on LTS releases
+  - `Android API Level 16` or later
   - `armv7`, `armv7s`, `arm64`, `arm64-simulator`, `i386`, `x86_64`, `x86_64-mac-catalyst` and `arm64-mac-catalyst` architectures on iOS
-  - `iOS SDK 12.1` or later
-    - `iOS SDK 10` on LTS releases
+  - `iOS SDK 10` or later
   - Can process Storage Access Framework (SAF) Uris on Android
   - 25 external libraries
 
@@ -24,7 +22,7 @@
   - `bzip2`, `iconv`, `libuuid`, `zlib` system libraries and `AudioToolbox`, `VideoToolbox`, `AVFoundation` system frameworks on iOS
 
 - Includes Typescript definitions
-- Licensed under `LGPL 3.0` by default, some packages licensed by `GPL v3.0` effectively
+- Licensed under LGPL 3.0, can be customized to support GPL v3.0
 
 ### 2. Installation
 
@@ -34,16 +32,16 @@ yarn add ffmpeg-kit-react-native
 
 #### 2.1 Packages
 
-`FFmpeg` includes built-in encoders for some popular formats. However, there are certain external libraries that needs
+`ffmpeg` includes built-in encoders for some popular formats. However, there are certain external libraries that needs
 to be enabled in order to encode specific formats/codecs. For example, to encode an `mp3` file you need `lame` or
 `shine` library enabled. You have to install a `ffmpeg-kit-react-native` package that has at least one of them inside.
 To encode an `h264` video, you need to install a package with `x264` inside. To encode `vp8` or `vp9` videos, you need
 a `ffmpeg-kit-react-native` package with `libvpx` inside.
 
-`ffmpeg-kit` provides eight packages that include different sets of external libraries. These packages are named
-according to the external libraries included. Refer to the
-[Packages](https://github.com/concept7/ffmpeg-kit/wiki/Packages) wiki page to see the names of those
-packages and external libraries included in each one of them.
+`ffmpeg-kit` provides eight packages that include different sets of external libraries. These packages are
+named according to the external libraries included in them. Refer to
+[Packages](https://github.com/tanersener/ffmpeg-kit#7-packages) section of the project README to see the names
+of those packages and external libraries included in each of them.
 
 ##### 2.1.1 Package Names
 
@@ -186,10 +184,10 @@ the package name you are using.
 
 #### 2.4 LTS Releases
 
-`ffmpeg-kit-react-native` is published in two variants: `Main Release` and `LTS Release`. Both releases share the
-same source code but is built with different settings (Architectures, API Level, iOS Min SDK, etc.). Refer to the
-[LTS Releases](https://github.com/concept7/ffmpeg-kit/wiki/LTS-Releases) wiki page to see how they differ from each
-other.
+`ffmpeg-kit-react-native` is published in two different variants: `Main Release` and `LTS Release`. Both releases
+share the same source code but is built with different settings (Architectures, API Level, iOS Min SDK, etc.). Refer to
+[LTS Releases](https://github.com/tanersener/ffmpeg-kit#9-lts-releases) section of the project README to see how they
+compare to each other.
 
 ### 3. Using
 
@@ -399,16 +397,16 @@ other.
 ### 4. Test Application
 
 You can see how `FFmpegKit` is used inside an application by running `react-native` test applications developed under
-the [FFmpegKit Test](https://github.com/arthenica/ffmpeg-kit-test) project.
+the [FFmpegKit Test](https://github.com/tanersener/ffmpeg-kit-test) project.
 
 ### 5. Tips
 
-See [Tips](https://github.com/concept7/ffmpeg-kit/wiki/Tips) wiki page.
+See [Tips](https://github.com/tanersener/ffmpeg-kit/wiki/Tips) wiki page.
 
 ### 6. License
 
-See [License](https://github.com/concept7/ffmpeg-kit/wiki/License) wiki page.
+See [License](https://github.com/tanersener/ffmpeg-kit/wiki/License) wiki page.
 
 ### 7. Patents
 
-See [Patents](https://github.com/concept7/ffmpeg-kit/wiki/Patents) wiki page.
+See [Patents](https://github.com/tanersener/ffmpeg-kit/wiki/Patents) wiki page.
