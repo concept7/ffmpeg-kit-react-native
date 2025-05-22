@@ -244,7 +244,7 @@ RCT_EXPORT_METHOD(getArch:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRe
 // FFmpegSession
 
 RCT_EXPORT_METHOD(ffmpegSession:(NSArray*)arguments resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-    FFmpegSession* session = [FFmpegSession create:arguments withCompleteCallback:nil withLogCallback:nil withStatisticsCallback:nil withLogRedirectionStrategy:LogRedirectionStrategyNeverPrintLogs];
+    FFmpegSession* session = [[FFmpegSession alloc] init:arguments withCompleteCallback:nil withLogCallback:nil withStatisticsCallback:nil withLogRedirectionStrategy:LogRedirectionStrategyNeverPrintLogs];
     resolve([FFmpegKitReactNativeModule toSessionDictionary:session]);
 }
 
@@ -285,35 +285,37 @@ RCT_EXPORT_METHOD(ffmpegSessionGetStatistics:(int)sessionId resolver:(RCTPromise
 // FFprobeSession
 
 RCT_EXPORT_METHOD(ffprobeSession:(NSArray*)arguments resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-    FFprobeSession* session = [FFprobeSession create:arguments withCompleteCallback:nil withLogCallback:nil withLogRedirectionStrategy:LogRedirectionStrategyNeverPrintLogs];
+    FFprobeSession* session = [[FFprobeSession alloc] init:arguments withCompleteCallback:nil withLogCallback:nil withLogRedirectionStrategy:LogRedirectionStrategyNeverPrintLogs];
     resolve([FFmpegKitReactNativeModule toSessionDictionary:session]);
 }
 
 // MediaInformationSession
 
 RCT_EXPORT_METHOD(mediaInformationSession:(NSArray*)arguments resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-    MediaInformationSession* session = [MediaInformationSession create:arguments withCompleteCallback:nil withLogCallback:nil];
+    MediaInformationSession* session = [[MediaInformationSession alloc] init:arguments withCompleteCallback:nil withLogCallback:nil];
     resolve([FFmpegKitReactNativeModule toSessionDictionary:session]);
 }
 
 // MediaInformationJsonParser
 
 RCT_EXPORT_METHOD(mediaInformationJsonParserFrom:(NSString*)ffprobeJsonOutput resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-    @try {
-        MediaInformation* mediaInformation = [MediaInformationJsonParser fromWithError:ffprobeJsonOutput];
+    NSError *error;
+    MediaInformation* mediaInformation = [MediaInformationJsonParser from:ffprobeJsonOutput with:error];
+    if (error == nil) {
         resolve([FFmpegKitReactNativeModule toMediaInformationDictionary:mediaInformation]);
-    } @catch (NSException *exception) {
-        NSLog(@"Parsing MediaInformation failed: %@.\n", [NSString stringWithFormat:@"%@\n%@", [exception userInfo], [exception callStackSymbols]]);
+    } else {
+        NSLog(@"MediaInformation parsing failed: %@.\n", error);
         resolve(nil);
     }
 }
 
 RCT_EXPORT_METHOD(mediaInformationJsonParserFromWithError:(NSString*)ffprobeJsonOutput resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
-    @try {
-        MediaInformation* mediaInformation = [MediaInformationJsonParser fromWithError:ffprobeJsonOutput];
+    NSError *error;
+    MediaInformation* mediaInformation = [MediaInformationJsonParser from:ffprobeJsonOutput with:error];
+    if (error == nil) {
         resolve([FFmpegKitReactNativeModule toMediaInformationDictionary:mediaInformation]);
-    } @catch (NSException *exception) {
-        NSLog(@"Parsing MediaInformation failed: %@.\n", [NSString stringWithFormat:@"%@\n%@", [exception userInfo], [exception callStackSymbols]]);
+    } else {
+        NSLog(@"MediaInformation parsing failed: %@.\n", error);
         reject(@"PARSE_FAILED", @"Parsing MediaInformation failed with JSON error.", nil);
     }
 }
@@ -765,7 +767,7 @@ RCT_EXPORT_METHOD(uninit:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRej
         dictionary[KEY_STATISTICS_VIDEO_FPS] = [NSNumber numberWithFloat: [statistics getVideoFps]];
         dictionary[KEY_STATISTICS_VIDEO_QUALITY] = [NSNumber numberWithFloat: [statistics getVideoQuality]];
         dictionary[KEY_STATISTICS_SIZE] = [NSNumber numberWithLong: [statistics getSize]];
-        dictionary[KEY_STATISTICS_TIME] = [NSNumber numberWithDouble: [statistics getTime]];
+        dictionary[KEY_STATISTICS_TIME] = [NSNumber numberWithInt: [statistics getTime]];
         dictionary[KEY_STATISTICS_BITRATE] = [NSNumber numberWithDouble: [statistics getBitrate]];
         dictionary[KEY_STATISTICS_SPEED] = [NSNumber numberWithDouble: [statistics getSpeed]];
 
