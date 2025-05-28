@@ -14,7 +14,7 @@ Pod::Spec.new do |s|
   s.requires_arc      = true
   s.static_framework  = true
 
-  s.source       = { :git => "https://github.com/concept7/ffmpeg-kit-ios.git", :tag => "v0.1" }
+  s.source       = { :git => "https://github.com/concept7/ffmpeg-kit-react-native.git", :tag => "v0.1" }
 
   s.default_subspec   = 'full-gpl'
 
