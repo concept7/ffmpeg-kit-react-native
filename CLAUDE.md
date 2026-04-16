@@ -6,7 +6,7 @@
 - `src/index.d.ts` — TypeScript type definitions
 - `ios/` — iOS native module (Objective-C)
 - `android/` — Android native module (Java)
-- `android/libs/ffmpeg-kit-6.1.1.aar` — Android FFmpeg Kit binary (16KB page size compatible)
+- `android/libs/ffmpeg-kit-6.x.aar` — Android FFmpeg Kit binary (16KB page size compatible)
 - `ios/Frameworks/` — iOS xcframeworks, cloned at `pod install` from concept7/ffmpeg-kit-ios (gitignored)
 
 ## Dependencies
@@ -17,7 +17,7 @@
 
 ### Android
 - ffmpeg-kit 6.1.1 full-gpl AAR from [moizhassankh/ffmpeg-kit-android-16KB](https://github.com/moizhassankh/ffmpeg-kit-android-16KB)
-- Committed to `android/libs/ffmpeg-kit-6.1.1.aar`
+- Committed to `android/libs/ffmpeg-kit-6.x.aar`
 - Built with 16KB memory page size support (required for Google Play API 35+)
 
 ## Updating binaries
@@ -26,7 +26,7 @@
 Update the `--branch` tag in the `prepare_command` in `ffmpeg-kit-react-native.podspec` to point to the new branch/tag in concept7/ffmpeg-kit-ios.
 
 ### Android AAR
-Replace `android/libs/ffmpeg-kit-6.1.1.aar` with the new AAR and update the filename referenced in `android/build.gradle`.
+Replace `android/libs/ffmpeg-kit-6.x.aar` with the new AAR and update the filename referenced in `android/build.gradle`.
 
 ## React Native compatibility
 
