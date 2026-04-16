@@ -7,7 +7,7 @@ React Native bridge for FFmpeg Kit, supporting both iOS and Android.
 | Platform | FFmpeg Kit | Variant   | Notes                        |
 |----------|------------|-----------|------------------------------|
 | iOS      | 6.0        | full-gpl  | xcframeworks via concept7/ffmpeg-kit-ios |
-| Android  | 6.1.1      | full-gpl  | 16KB page size compatible    |
+| Android  | 6.x      | full-gpl  | 16KB page size compatible    |
 
 ## Installation
 
