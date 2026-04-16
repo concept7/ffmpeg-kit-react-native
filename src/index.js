@@ -12,6 +12,7 @@ const logRedirectionStrategyMap = new Map()
 const eventLogCallbackEvent = "FFmpegKitLogCallbackEvent";
 const eventStatisticsCallbackEvent = "FFmpegKitStatisticsCallbackEvent";
 const eventCompleteCallbackEvent = "FFmpegKitCompleteCallbackEvent";
+let debugCallbackEvents = false;
 
 export const LogRedirectionStrategy = {
   ALWAYS_PRINT_LOGS: 0,
@@ -761,8 +762,15 @@ export class FFmpegKit {
    */
   static async executeWithArgumentsAsync(commandArguments, completeCallback, logCallback, statisticsCallback) {
     let session = await FFmpegSession.create(commandArguments, completeCallback, logCallback, statisticsCallback);
+    const sessionId = session.getSessionId();
 
     await FFmpegKitConfig.asyncFFmpegExecute(session);
+    waitForSessionCompletionFallback(sessionId).catch((err) => {
+      console.log("Exception thrown inside FFmpeg completion fallback.", err?.stack ?? err);
+    });
+    waitForFFmpegStatisticsFallback(sessionId).catch((err) => {
+      console.log("Exception thrown inside FFmpeg statistics fallback.", err?.stack ?? err);
+    });
 
     return session;
   }
@@ -804,6 +812,24 @@ export class FFmpegKit {
 export class FFmpegKitConfig {
 
   static #globalLogRedirectionStrategy = LogRedirectionStrategy.PRINT_LOGS_WHEN_NO_CALLBACKS_DEFINED;
+
+  /**
+   * Enables or disables callback debug logs at runtime.
+   *
+   * @param enabled true to enable callback debug logs, false to disable
+   */
+  static setDebugCallbackEvents(enabled) {
+    debugCallbackEvents = enabled === true;
+  }
+
+  /**
+   * Returns whether callback debug logs are enabled.
+   *
+   * @return true when callback debug logs are enabled, false otherwise
+   */
+  static getDebugCallbackEvents() {
+    return debugCallbackEvents;
+  }
 
   /**
    * Initializes the library asynchronously.
@@ -1577,6 +1603,14 @@ export class FFmpegKitConfig {
 }
 
 class FFmpegKitFactory {
+  static normalizeSessionId(sessionId) {
+    if (sessionId === undefined || sessionId === null) {
+      return sessionId;
+    }
+
+    const normalized = Number(sessionId);
+    return Number.isNaN(normalized) ? sessionId : normalized;
+  }
 
   static #ffmpegSessionCompleteCallback = undefined;
   static #ffprobeSessionCompleteCallback = undefined;
@@ -1622,20 +1656,20 @@ class FFmpegKitFactory {
   }
 
   static getLogRedirectionStrategy(sessionId) {
-    return logRedirectionStrategyMap.get(sessionId);
+    return logRedirectionStrategyMap.get(this.normalizeSessionId(sessionId));
   }
 
   static setLogRedirectionStrategy(sessionId, logRedirectionStrategy) {
-    logRedirectionStrategyMap.set(sessionId, logRedirectionStrategy);
+    logRedirectionStrategyMap.set(this.normalizeSessionId(sessionId), logRedirectionStrategy);
   }
 
   static getLogCallback(sessionId) {
-    return logCallbackMap.get(sessionId);
+    return logCallbackMap.get(this.normalizeSessionId(sessionId));
   }
 
   static setLogCallback(sessionId, logCallback) {
     if (logCallback !== undefined) {
-      logCallbackMap.set(sessionId, logCallback);
+      logCallbackMap.set(this.normalizeSessionId(sessionId), logCallback);
     }
   }
 
@@ -1648,12 +1682,16 @@ class FFmpegKitFactory {
   }
 
   static getStatisticsCallback(sessionId) {
-    return statisticsCallbackMap.get(sessionId);
+    return statisticsCallbackMap.get(this.normalizeSessionId(sessionId));
   }
 
   static setStatisticsCallback(sessionId, statisticsCallback) {
     if (statisticsCallback !== undefined) {
-      statisticsCallbackMap.set(sessionId, statisticsCallback);
+      const normalizedSessionId = this.normalizeSessionId(sessionId);
+      if (debugCallbackEvents) {
+        console.log(`[ffmpeg-kit-react-native] Registering session statistics callback for sessionId=${normalizedSessionId}`);
+      }
+      statisticsCallbackMap.set(normalizedSessionId, statisticsCallback);
     }
   }
 
@@ -1666,12 +1704,16 @@ class FFmpegKitFactory {
   }
 
   static getFFmpegSessionCompleteCallback(sessionId) {
-    return ffmpegSessionCompleteCallbackMap.get(sessionId);
+    return ffmpegSessionCompleteCallbackMap.get(this.normalizeSessionId(sessionId));
   }
 
   static setFFmpegSessionCompleteCallback(sessionId, completeCallback) {
     if (completeCallback !== undefined) {
-      ffmpegSessionCompleteCallbackMap.set(sessionId, completeCallback);
+      const normalizedSessionId = this.normalizeSessionId(sessionId);
+      if (debugCallbackEvents) {
+        console.log(`[ffmpeg-kit-react-native] Registering FFmpeg complete callback for sessionId=${normalizedSessionId}`);
+      }
+      ffmpegSessionCompleteCallbackMap.set(normalizedSessionId, completeCallback);
     }
   }
 
@@ -1684,12 +1726,16 @@ class FFmpegKitFactory {
   }
 
   static getFFprobeSessionCompleteCallback(sessionId) {
-    return ffprobeSessionCompleteCallbackMap.get(sessionId);
+    return ffprobeSessionCompleteCallbackMap.get(this.normalizeSessionId(sessionId));
   }
 
   static setFFprobeSessionCompleteCallback(sessionId, completeCallback) {
     if (completeCallback !== undefined) {
-      ffprobeSessionCompleteCallbackMap.set(sessionId, completeCallback);
+      const normalizedSessionId = this.normalizeSessionId(sessionId);
+      if (debugCallbackEvents) {
+        console.log(`[ffmpeg-kit-react-native] Registering FFprobe complete callback for sessionId=${normalizedSessionId}`);
+      }
+      ffprobeSessionCompleteCallbackMap.set(normalizedSessionId, completeCallback);
     }
   }
 
@@ -1702,12 +1748,16 @@ class FFmpegKitFactory {
   }
 
   static getMediaInformationSessionCompleteCallback(sessionId) {
-    return mediaInformationSessionCompleteCallbackMap.get(sessionId);
+    return mediaInformationSessionCompleteCallbackMap.get(this.normalizeSessionId(sessionId));
   }
 
   static setMediaInformationSessionCompleteCallback(sessionId, completeCallback) {
     if (completeCallback !== undefined) {
-      mediaInformationSessionCompleteCallbackMap.set(sessionId, completeCallback);
+      const normalizedSessionId = this.normalizeSessionId(sessionId);
+      if (debugCallbackEvents) {
+        console.log(`[ffmpeg-kit-react-native] Registering media information complete callback for sessionId=${normalizedSessionId}`);
+      }
+      mediaInformationSessionCompleteCallbackMap.set(normalizedSessionId, completeCallback);
     }
   }
 
@@ -1744,6 +1794,43 @@ class FFmpegKitFactory {
 class FFmpegKitInitializer {
   static #initialized = false;
   static #eventEmitter = new FFmpegKitReactNativeEventEmitter();
+  static #completedSessionIds = new Set();
+  static #statisticsSessionIds = new Set();
+  
+  static invokeCallback(callback, payload, callbackLabel) {
+    try {
+      const callbackResult = callback(payload);
+      if (callbackResult && typeof callbackResult.then === 'function') {
+        callbackResult.catch((err) => {
+          console.log(`Exception thrown inside ${callbackLabel}.`, err?.stack ?? err);
+        });
+      }
+    } catch (err) {
+      console.log(`Exception thrown inside ${callbackLabel}.`, err?.stack ?? err);
+    }
+  }
+
+  static markSessionCompleteEventReceived(sessionId) {
+    const normalizedSessionId = FFmpegKitFactory.normalizeSessionId(sessionId);
+    if (normalizedSessionId !== undefined && normalizedSessionId !== null) {
+      this.#completedSessionIds.add(normalizedSessionId);
+    }
+  }
+
+  static hasSessionCompleteEventBeenReceived(sessionId) {
+    return this.#completedSessionIds.has(FFmpegKitFactory.normalizeSessionId(sessionId));
+  }
+
+  static markStatisticsEventReceived(sessionId) {
+    const normalizedSessionId = FFmpegKitFactory.normalizeSessionId(sessionId);
+    if (normalizedSessionId !== undefined && normalizedSessionId !== null) {
+      this.#statisticsSessionIds.add(normalizedSessionId);
+    }
+  }
+
+  static hasStatisticsEventBeenReceived(sessionId) {
+    return this.#statisticsSessionIds.has(FFmpegKitFactory.normalizeSessionId(sessionId));
+  }
 
   static processLogCallbackEvent(event) {
     const log = FFmpegKitFactory.mapToLog(event)
@@ -1767,25 +1854,15 @@ class FFmpegKitInitializer {
     let activeLogCallback = FFmpegKitFactory.getLogCallback(sessionId);
     if (activeLogCallback !== undefined) {
       sessionCallbackDefined = true;
-
-      try {
-        // NOTIFY SESSION CALLBACK DEFINED
-        activeLogCallback(log);
-      } catch (err) {
-        console.log("Exception thrown inside session log callback.", err.stack);
-      }
+      // NOTIFY SESSION CALLBACK DEFINED
+      FFmpegKitInitializer.invokeCallback(activeLogCallback, log, "session log callback");
     }
 
     let globalLogCallbackFunction = FFmpegKitFactory.getGlobalLogCallback();
     if (globalLogCallbackFunction !== undefined) {
       globalCallbackDefined = true;
-
-      try {
-        // NOTIFY GLOBAL CALLBACK DEFINED
-        globalLogCallbackFunction(log);
-      } catch (err) {
-        console.log("Exception thrown inside global log callback.", err.stack);
-      }
+      // NOTIFY GLOBAL CALLBACK DEFINED
+      FFmpegKitInitializer.invokeCallback(globalLogCallbackFunction, log, "global log callback");
     }
 
     // EXECUTE THE LOG STRATEGY
@@ -1829,78 +1906,92 @@ class FFmpegKitInitializer {
   }
 
   static processStatisticsCallbackEvent(event) {
-    let statistics = FFmpegKitFactory.mapToStatistics(event);
-    let sessionId = event.sessionId;
+    if (event === undefined || event === null) {
+      if (debugCallbackEvents) {
+        console.log("[ffmpeg-kit-react-native] Ignoring empty statistics event");
+      }
+      return;
+    }
+
+    const sessionId = FFmpegKitFactory.normalizeSessionId(
+      event.sessionId ?? (typeof event.getSessionId === 'function' ? event.getSessionId() : undefined)
+    );
+    const statistics = event instanceof Statistics ? event : FFmpegKitFactory.mapToStatistics(event);
+
+    if (statistics === undefined || sessionId === undefined || sessionId === null) {
+      if (debugCallbackEvents) {
+        console.log(`[ffmpeg-kit-react-native] Ignoring malformed statistics event: ${JSON.stringify(event)}`);
+      }
+      return;
+    }
+
+    FFmpegKitInitializer.markStatisticsEventReceived(sessionId);
+    if (debugCallbackEvents) {
+      console.log(`[ffmpeg-kit-react-native] Received statistics event for sessionId=${sessionId}`);
+    }
 
     let activeStatisticsCallback = FFmpegKitFactory.getStatisticsCallback(sessionId);
     if (activeStatisticsCallback !== undefined) {
-      try {
-        // NOTIFY SESSION CALLBACK DEFINED
-        activeStatisticsCallback(statistics);
-      } catch (err) {
-        console.log("Exception thrown inside session statistics callback.", err.stack);
+      if (debugCallbackEvents) {
+        console.log(`[ffmpeg-kit-react-native] Dispatching session statistics callback for sessionId=${sessionId}`);
       }
+      // NOTIFY SESSION CALLBACK DEFINED
+      FFmpegKitInitializer.invokeCallback(activeStatisticsCallback, statistics, "session statistics callback");
+    } else if (debugCallbackEvents) {
+      console.log(`[ffmpeg-kit-react-native] No session statistics callback found for sessionId=${sessionId}`);
     }
 
     let globalStatisticsCallbackFunction = FFmpegKitFactory.getGlobalStatisticsCallback();
     if (globalStatisticsCallbackFunction !== undefined) {
-      try {
-        // NOTIFY GLOBAL CALLBACK DEFINED
-        globalStatisticsCallbackFunction(statistics);
-      } catch (err) {
-        console.log("Exception thrown inside global statistics callback.", err.stack);
+      if (debugCallbackEvents) {
+        console.log(`[ffmpeg-kit-react-native] Dispatching global statistics callback for sessionId=${sessionId}`);
       }
+      // NOTIFY GLOBAL CALLBACK DEFINED
+      FFmpegKitInitializer.invokeCallback(globalStatisticsCallbackFunction, statistics, "global statistics callback");
+    } else if (debugCallbackEvents) {
+      console.log(`[ffmpeg-kit-react-native] No global statistics callback registered`);
     }
   }
 
   static processCompleteCallbackEvent(event) {
     if (event !== undefined) {
-      let sessionId = event.sessionId;
+      FFmpegKitInitializer.markSessionCompleteEventReceived(event.sessionId);
+      if (debugCallbackEvents) {
+        console.log(`[ffmpeg-kit-react-native] Received complete event for sessionId=${event.sessionId} type=${event.type}`);
+      }
+      const session = FFmpegKitFactory.mapToSession(event);
 
-      FFmpegKitConfig.getSession(sessionId).then(session => {
-        if (session !== undefined) {
-          if (session.getCompleteCallback() !== undefined) {
-            try {
-              // NOTIFY SESSION CALLBACK DEFINED
-              session.getCompleteCallback()(session);
-            } catch (err) {
-              console.log("Exception thrown inside session complete callback.", err.stack);
-            }
+      if (session !== undefined) {
+        if (session.getCompleteCallback() !== undefined) {
+          if (debugCallbackEvents) {
+            console.log(`[ffmpeg-kit-react-native] Dispatching session complete callback for sessionId=${event.sessionId}`);
           }
+          // NOTIFY SESSION CALLBACK DEFINED
+          FFmpegKitInitializer.invokeCallback(session.getCompleteCallback(), session, "session complete callback");
+        } else if (debugCallbackEvents) {
+          console.log(`[ffmpeg-kit-react-native] No session complete callback found for sessionId=${event.sessionId}`);
+        }
 
-          if (session.isFFmpeg()) {
-            let globalFFmpegSessionCompleteCallback = FFmpegKitFactory.getGlobalFFmpegSessionCompleteCallback();
-            if (globalFFmpegSessionCompleteCallback !== undefined) {
-              try {
-                // NOTIFY GLOBAL CALLBACK DEFINED
-                globalFFmpegSessionCompleteCallback(session);
-              } catch (err) {
-                console.log("Exception thrown inside global complete callback.", err.stack);
-              }
-            }
-          } else if (session.isFFprobe()) {
-            let globalFFprobeSessionCompleteCallback = FFmpegKitFactory.getGlobalFFprobeSessionCompleteCallback();
-            if (globalFFprobeSessionCompleteCallback !== undefined) {
-              try {
-                // NOTIFY GLOBAL CALLBACK DEFINED
-                globalFFprobeSessionCompleteCallback(session);
-              } catch (err) {
-                console.log("Exception thrown inside global complete callback.", err.stack);
-              }
-            }
-          } else if (session.isMediaInformation()) {
-            let globalMediaInformationSessionCompleteCallback = FFmpegKitFactory.getGlobalMediaInformationSessionCompleteCallback();
-            if (globalMediaInformationSessionCompleteCallback !== undefined) {
-              try {
-                // NOTIFY GLOBAL CALLBACK DEFINED
-                globalMediaInformationSessionCompleteCallback(session);
-              } catch (err) {
-                console.log("Exception thrown inside global complete callback.", err.stack);
-              }
-            }
+        if (session.isFFmpeg()) {
+          let globalFFmpegSessionCompleteCallback = FFmpegKitFactory.getGlobalFFmpegSessionCompleteCallback();
+          if (globalFFmpegSessionCompleteCallback !== undefined) {
+            // NOTIFY GLOBAL CALLBACK DEFINED
+            FFmpegKitInitializer.invokeCallback(globalFFmpegSessionCompleteCallback, session, "global complete callback");
+          }
+        } else if (session.isFFprobe()) {
+          let globalFFprobeSessionCompleteCallback = FFmpegKitFactory.getGlobalFFprobeSessionCompleteCallback();
+          if (globalFFprobeSessionCompleteCallback !== undefined) {
+            // NOTIFY GLOBAL CALLBACK DEFINED
+            FFmpegKitInitializer.invokeCallback(globalFFprobeSessionCompleteCallback, session, "global complete callback");
+          }
+        } else if (session.isMediaInformation()) {
+          let globalMediaInformationSessionCompleteCallback = FFmpegKitFactory.getGlobalMediaInformationSessionCompleteCallback();
+          if (globalMediaInformationSessionCompleteCallback !== undefined) {
+            // NOTIFY GLOBAL CALLBACK DEFINED
+            FFmpegKitInitializer.invokeCallback(globalMediaInformationSessionCompleteCallback, session, "global complete callback");
           }
         }
-      });
+      }
     }
   }
 
@@ -1923,11 +2014,116 @@ class FFmpegKitInitializer {
     const arch = await ArchDetect.getArch();
     const packageName = await Packages.getPackageName();
     await FFmpegKitConfig.enableRedirection();
+    await FFmpegKitConfig.setSessionHistorySize(100);
     const isLTSPostfix = (await FFmpegKitConfig.isLTSBuild()) ? "-lts" : "";
 
     console.log(`Loaded ffmpeg-kit-react-native-${platform}-${packageName}-${arch}-${version}${isLTSPostfix}.`);
   }
 
+}
+
+async function waitForMediaInformationCompletionFallback(sessionId) {
+  const maxAttempts = 600;
+  const sleepMs = 100;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (FFmpegKitInitializer.hasSessionCompleteEventBeenReceived(sessionId)) {
+      return;
+    }
+
+    const state = await FFmpegKitReactNativeModule.abstractSessionGetState(sessionId);
+    if (state === SessionState.COMPLETED || state === SessionState.FAILED) {
+      const sessionMap = await FFmpegKitReactNativeModule.getSession(sessionId);
+      if (
+        sessionMap !== undefined &&
+        sessionMap !== null &&
+        !FFmpegKitInitializer.hasSessionCompleteEventBeenReceived(sessionId)
+      ) {
+        if (debugCallbackEvents) {
+          console.log(`[ffmpeg-kit-react-native] Triggering fallback complete event dispatch for media information sessionId=${sessionId}`);
+        }
+        FFmpegKitInitializer.processCompleteCallbackEvent(sessionMap);
+      }
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, sleepMs));
+  }
+
+  if (debugCallbackEvents) {
+    console.log(`[ffmpeg-kit-react-native] Fallback timeout while waiting for media information completion sessionId=${sessionId}`);
+  }
+}
+
+async function waitForSessionCompletionFallback(sessionId) {
+  const maxAttempts = 7200; // 30 minutes
+  const sleepMs = 250;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (FFmpegKitInitializer.hasSessionCompleteEventBeenReceived(sessionId)) {
+      return;
+    }
+
+    const state = await FFmpegKitReactNativeModule.abstractSessionGetState(sessionId);
+    if (state === SessionState.COMPLETED || state === SessionState.FAILED) {
+      const sessionMap = await FFmpegKitReactNativeModule.getSession(sessionId);
+      if (
+        sessionMap !== undefined &&
+        sessionMap !== null &&
+        !FFmpegKitInitializer.hasSessionCompleteEventBeenReceived(sessionId)
+      ) {
+        if (debugCallbackEvents) {
+          console.log(`[ffmpeg-kit-react-native] Triggering fallback complete event dispatch for sessionId=${sessionId}`);
+        }
+        FFmpegKitInitializer.processCompleteCallbackEvent(sessionMap);
+      }
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, sleepMs));
+  }
+
+  if (debugCallbackEvents) {
+    console.log(`[ffmpeg-kit-react-native] Fallback timeout while waiting for completion sessionId=${sessionId}`);
+  }
+}
+
+async function waitForFFmpegStatisticsFallback(sessionId) {
+  const maxAttempts = 7200; // 30 minutes
+  const sleepMs = 250;
+  let emittedStatisticsCount = 0;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (FFmpegKitInitializer.hasSessionCompleteEventBeenReceived(sessionId)) {
+      return;
+    }
+
+    if (!FFmpegKitInitializer.hasStatisticsEventBeenReceived(sessionId)) {
+      const statisticsList = await FFmpegKitReactNativeModule.ffmpegSessionGetStatistics(sessionId);
+      if (Array.isArray(statisticsList) && statisticsList.length > emittedStatisticsCount) {
+        const newStatistics = statisticsList.slice(emittedStatisticsCount);
+        emittedStatisticsCount = statisticsList.length;
+
+        for (const statisticsEvent of newStatistics) {
+          if (debugCallbackEvents) {
+            console.log(`[ffmpeg-kit-react-native] Dispatching fallback statistics callback for sessionId=${sessionId}`);
+          }
+          FFmpegKitInitializer.processStatisticsCallbackEvent(statisticsEvent);
+        }
+      }
+    }
+
+    const state = await FFmpegKitReactNativeModule.abstractSessionGetState(sessionId);
+    if (state === SessionState.COMPLETED || state === SessionState.FAILED) {
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, sleepMs));
+  }
+
+  if (debugCallbackEvents) {
+    console.log(`[ffmpeg-kit-react-native] Fallback timeout while waiting for statistics sessionId=${sessionId}`);
+  }
 }
 
 /**
@@ -2108,8 +2304,12 @@ export class FFprobeKit {
    */
   static async executeWithArgumentsAsync(commandArguments, completeCallback, logCallback) {
     let session = await FFprobeSession.create(commandArguments, completeCallback, logCallback);
+    const sessionId = session.getSessionId();
 
     await FFmpegKitConfig.asyncFFprobeExecute(session);
+    waitForSessionCompletionFallback(sessionId).catch((err) => {
+      console.log("Exception thrown inside FFprobe completion fallback.", err?.stack ?? err);
+    });
 
     return session;
   }
@@ -2210,10 +2410,14 @@ export class FFprobeKit {
    */
   static async getMediaInformationFromCommandArgumentsAsync(commandArguments, completeCallback, logCallback, waitTimeout) {
     let session = await MediaInformationSession.create(commandArguments, completeCallback, logCallback);
+    const sessionId = session.getSessionId();
 
     await FFmpegKitConfig.asyncGetMediaInformationExecute(session, waitTimeout);
+    waitForMediaInformationCompletionFallback(sessionId).catch((err) => {
+      console.log("Exception thrown inside media information completion fallback.", err?.stack ?? err);
+    });
 
-    const mediaInformation = await FFmpegKitReactNativeModule.getMediaInformation(session.getSessionId());
+    const mediaInformation = await FFmpegKitReactNativeModule.getMediaInformation(sessionId);
     if (mediaInformation !== undefined && mediaInformation !== null) {
       session.setMediaInformation(new MediaInformation(mediaInformation));
     }
@@ -2847,6 +3051,15 @@ export class Statistics {
     this.#time = time;
     this.#bitrate = bitrate;
     this.#speed = speed;
+    // Keep public fields for compatibility with consumers using `statistics.time` style access.
+    this.sessionId = sessionId;
+    this.videoFrameNumber = videoFrameNumber;
+    this.videoFps = videoFps;
+    this.videoQuality = videoQuality;
+    this.size = size;
+    this.time = time;
+    this.bitrate = bitrate;
+    this.speed = speed;
   }
 
   getSessionId() {
@@ -2855,6 +3068,7 @@ export class Statistics {
 
   setSessionId(sessionId) {
     this.#sessionId = sessionId;
+    this.sessionId = sessionId;
   }
 
   getVideoFrameNumber() {
@@ -2863,6 +3077,7 @@ export class Statistics {
 
   setVideoFrameNumber(videoFrameNumber) {
     this.#videoFrameNumber = videoFrameNumber;
+    this.videoFrameNumber = videoFrameNumber;
   }
 
   getVideoFps() {
@@ -2871,6 +3086,7 @@ export class Statistics {
 
   setVideoFps(videoFps) {
     this.#videoFps = videoFps;
+    this.videoFps = videoFps;
   }
 
   getVideoQuality() {
@@ -2879,6 +3095,7 @@ export class Statistics {
 
   setVideoQuality(videoQuality) {
     this.#videoQuality = videoQuality;
+    this.videoQuality = videoQuality;
   }
 
   getSize() {
@@ -2887,6 +3104,7 @@ export class Statistics {
 
   setSize(size) {
     this.#size = size;
+    this.size = size;
   }
 
   getTime() {
@@ -2895,6 +3113,7 @@ export class Statistics {
 
   setTime(time) {
     this.#time = time;
+    this.time = time;
   }
 
   getBitrate() {
@@ -2903,6 +3122,7 @@ export class Statistics {
 
   setBitrate(bitrate) {
     this.#bitrate = bitrate;
+    this.bitrate = bitrate;
   }
 
   getSpeed() {
@@ -2911,6 +3131,7 @@ export class Statistics {
 
   setSpeed(speed) {
     this.#speed = speed;
+    this.speed = speed;
   }
 
 }

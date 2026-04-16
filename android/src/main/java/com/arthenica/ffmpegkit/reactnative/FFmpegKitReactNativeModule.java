@@ -111,6 +111,7 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
   public static final String EVENT_LOG_CALLBACK_EVENT = "FFmpegKitLogCallbackEvent";
   public static final String EVENT_STATISTICS_CALLBACK_EVENT = "FFmpegKitStatisticsCallbackEvent";
   public static final String EVENT_COMPLETE_CALLBACK_EVENT = "FFmpegKitCompleteCallbackEvent";
+  private static final boolean DEBUG_CALLBACK_EVENTS = true;
 
   // REQUEST CODES
   public static final int READABLE_REQUEST_CODE = 10000;
@@ -120,6 +121,7 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
 
   private final AtomicBoolean logsEnabled;
   private final AtomicBoolean statisticsEnabled;
+  private final AtomicBoolean callbacksRegistered;
   private final ExecutorService asyncExecutorService;
 
   public FFmpegKitReactNativeModule(@Nullable ReactApplicationContext reactContext) {
@@ -127,11 +129,18 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
 
     this.logsEnabled = new AtomicBoolean(false);
     this.statisticsEnabled = new AtomicBoolean(false);
+    this.callbacksRegistered = new AtomicBoolean(false);
     this.asyncExecutorService = Executors.newFixedThreadPool(asyncWriteToPipeConcurrencyLimit);
 
     if (reactContext != null) {
-      registerGlobalCallbacks(reactContext);
+      ensureGlobalCallbacksRegistered(reactContext);
     }
+  }
+
+  @Override
+  public void initialize() {
+    super.initialize();
+    ensureGlobalCallbacksRegistered(getReactApplicationContext());
   }
 
   @ReactMethod
@@ -149,33 +158,56 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
     return "FFmpegKitReactNativeModule";
   }
 
-  protected void registerGlobalCallbacks(final ReactApplicationContext reactContext) {
+  protected void ensureGlobalCallbacksRegistered(final ReactApplicationContext reactContext) {
+    if (!callbacksRegistered.compareAndSet(false, true)) {
+      return;
+    }
+
     FFmpegKitConfig.enableFFmpegSessionCompleteCallback(session -> {
+      if (DEBUG_CALLBACK_EVENTS) {
+        Log.d(LIBRARY_NAME, "Emitting FFmpeg complete callback for sessionId=" + session.getSessionId());
+      }
       final DeviceEventManagerModule.RCTDeviceEventEmitter jsModule = reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class);
       jsModule.emit(EVENT_COMPLETE_CALLBACK_EVENT, toMap(session));
     });
 
     FFmpegKitConfig.enableFFprobeSessionCompleteCallback(session -> {
+      if (DEBUG_CALLBACK_EVENTS) {
+        Log.d(LIBRARY_NAME, "Emitting FFprobe complete callback for sessionId=" + session.getSessionId());
+      }
       final DeviceEventManagerModule.RCTDeviceEventEmitter jsModule = reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class);
       jsModule.emit(EVENT_COMPLETE_CALLBACK_EVENT, toMap(session));
     });
 
     FFmpegKitConfig.enableMediaInformationSessionCompleteCallback(session -> {
+      if (DEBUG_CALLBACK_EVENTS) {
+        Log.d(LIBRARY_NAME, "Emitting MediaInformation complete callback for sessionId=" + session.getSessionId());
+      }
       final DeviceEventManagerModule.RCTDeviceEventEmitter jsModule = reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class);
       jsModule.emit(EVENT_COMPLETE_CALLBACK_EVENT, toMap(session));
     });
 
     FFmpegKitConfig.enableLogCallback(log -> {
       if (logsEnabled.get()) {
+        if (DEBUG_CALLBACK_EVENTS) {
+          Log.d(LIBRARY_NAME, "Emitting log callback for sessionId=" + log.getSessionId());
+        }
         final DeviceEventManagerModule.RCTDeviceEventEmitter jsModule = reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class);
         jsModule.emit(EVENT_LOG_CALLBACK_EVENT, toMap(log));
+      } else if (DEBUG_CALLBACK_EVENTS) {
+        Log.d(LIBRARY_NAME, "Skipping log callback emission because logsEnabled=false");
       }
     });
 
     FFmpegKitConfig.enableStatisticsCallback(statistics -> {
       if (statisticsEnabled.get()) {
+        if (DEBUG_CALLBACK_EVENTS) {
+          Log.d(LIBRARY_NAME, "Emitting statistics callback for sessionId=" + statistics.getSessionId());
+        }
         final DeviceEventManagerModule.RCTDeviceEventEmitter jsModule = reactContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class);
         jsModule.emit(EVENT_STATISTICS_CALLBACK_EVENT, toMap(statistics));
+      } else if (DEBUG_CALLBACK_EVENTS) {
+        Log.d(LIBRARY_NAME, "Skipping statistics callback emission because statisticsEnabled=false");
       }
     });
   }
@@ -344,7 +376,13 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void ffmpegSession(final ReadableArray readableArray, final Promise promise) {
-    promise.resolve(toMap(new FFmpegSession(toArgumentsArray(readableArray), null, null, null, LogRedirectionStrategy.NEVER_PRINT_LOGS)));
+    promise.resolve(toMap(FFmpegSession.create(
+      toArgumentsArray(readableArray),
+      null,
+      null,
+      null,
+      LogRedirectionStrategy.NEVER_PRINT_LOGS
+    )));
   }
 
   @ReactMethod
@@ -395,14 +433,23 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
 
   @ReactMethod
   public void ffprobeSession(final ReadableArray readableArray, final Promise promise) {
-    promise.resolve(toMap(new FFprobeSession(toArgumentsArray(readableArray), null, null, LogRedirectionStrategy.NEVER_PRINT_LOGS)));
+    promise.resolve(toMap(FFprobeSession.create(
+      toArgumentsArray(readableArray),
+      null,
+      null,
+      LogRedirectionStrategy.NEVER_PRINT_LOGS
+    )));
   }
 
   // MediaInformationSession
 
   @ReactMethod
   public void mediaInformationSession(final ReadableArray readableArray, final Promise promise) {
-    promise.resolve(toMap(new MediaInformationSession(toArgumentsArray(readableArray), null, null)));
+    promise.resolve(toMap(MediaInformationSession.create(
+      toArgumentsArray(readableArray),
+      null,
+      null
+    )));
   }
 
   // MediaInformationJsonParser

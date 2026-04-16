@@ -1,38 +1,28 @@
 buildscript {
   repositories {
     google()
-    jcenter()
+    mavenCentral()
   }
-
   dependencies {
-    classpath 'com.android.tools.build:gradle:4.2.2'
+    classpath 'com.android.tools.build:gradle:8.3.0'
   }
 }
 
 apply plugin: 'com.android.library'
 
-static def safePackageName(String packageName) {
-  packageName.replace("-lts", "")
-}
-
-def safePackageVersion(String packageName) {
-  def version = project.properties['ffmpegKit.android.main.version']
-  def ltsVersion = project.properties['ffmpegKit.android.lts.version']
-  packageName.contains("-lts") ? ltsVersion + ".LTS" : version
-}
-
-def safeExtGet(String prop, String fallback) {
+def safeExtGet(prop, fallback) {
   rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
 }
 
 android {
-  compileSdkVersion 30
+  namespace 'com.arthenica.ffmpegkit.reactnative'
+  compileSdkVersion 36
 
   defaultConfig {
-    // minSdkVersion safeExtGet('ffmpegKitPackage', 'https').contains("-lts") ? 16 : 24
-    targetSdkVersion 30
-    versionCode 02
-    versionName "0.2"
+    minSdkVersion 24
+    targetSdkVersion 36
+    versionCode 3
+    versionName "0.3.0"
   }
 
   buildTypes {
@@ -44,83 +34,66 @@ android {
     disable 'GradleCompatible'
   }
   compileOptions {
-    sourceCompatibility JavaVersion.VERSION_1_8
-    targetCompatibility JavaVersion.VERSION_1_8
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+  repositories {
+    flatDir {
+      dirs 'libs'
+    }
   }
 }
 
 repositories {
   mavenCentral()
-  jcenter()
   google()
 
-  def found = false
-  def defaultDir = null
   def androidSourcesName = 'React Native sources'
+  def androidSourcesRoot = null
+
+  def findReactNativeAndroidDir = { File base, int depth ->
+    def current = base
+    depth.times {
+      if (current == null) return null
+      def candidate = new File(current, 'node_modules/react-native/android')
+      if (candidate.exists()) {
+        return candidate
+      }
+      current = current.parentFile
+    }
+    return null
+  }
 
   if (rootProject.ext.has('reactNativeAndroidRoot')) {
-    defaultDir = rootProject.ext.get('reactNativeAndroidRoot')
+    androidSourcesRoot = new File(rootProject.ext.get('reactNativeAndroidRoot'))
   } else {
-    defaultDir = new File(
-      projectDir,
-      'node_modules/react-native/android'
-    )
+    def searchRoots = [projectDir, rootProject.projectDir, rootProject.rootDir]
+    searchRoots.any { root ->
+      if (root == null) return false
+      def candidate = findReactNativeAndroidDir(root, 6)
+      if (candidate != null) {
+        androidSourcesRoot = candidate
+        return true
+      }
+      return false
+    }
   }
 
-  if (defaultDir.exists()) {
+  if (androidSourcesRoot != null && androidSourcesRoot.exists()) {
     maven {
-      url defaultDir.toString()
+      url androidSourcesRoot.toString()
       name androidSourcesName
     }
-
-    logger.info(":${project.name}:reactNativeAndroidRoot ${defaultDir.canonicalPath}")
-    found = true
   } else {
-    def parentDir = rootProject.projectDir
-
-    1.upto(5, {
-      if (found) return true
-      parentDir = parentDir.parentFile
-
-      def androidSourcesDir = new File(
-        parentDir,
-        'node_modules/react-native'
-      )
-
-      def androidPrebuiltBinaryDir = new File(
-        parentDir,
-        'node_modules/react-native/android'
-      )
-
-      if (androidPrebuiltBinaryDir.exists()) {
-        maven {
-          url androidPrebuiltBinaryDir.toString()
-          name androidSourcesName
-        }
-
-        logger.info(":${project.name}:reactNativeAndroidRoot ${androidPrebuiltBinaryDir.canonicalPath}")
-        found = true
-      } else if (androidSourcesDir.exists()) {
-        maven {
-          url androidSourcesDir.toString()
-          name androidSourcesName
-        }
-
-        logger.info(":${project.name}:reactNativeAndroidRoot ${androidSourcesDir.canonicalPath}")
-        found = true
-      }
-    })
-  }
-
-  if (!found) {
-    throw new GradleException(
-      "${project.name}: unable to locate React Native android sources. " +
-        "Ensure you have you installed React Native as a dependency in your project and try again."
-    )
+    logger.warn("${project.name}: React Native android sources not found. " +
+      "Gradle will fall back to the published React Native AAR, but you can set " +
+      "reactNativeAndroidRoot in your root project's ext block if needed.")
   }
 }
 
 dependencies {
   api 'com.facebook.react:react-native:+'
-  implementation(name: 'ffmpeg-kit-4.5', ext: 'aar')
+  implementation(name: 'ffmpeg-kit-6.1.1', ext: 'aar')
+  implementation 'com.arthenica:smart-exception-common:0.2.1'
+  implementation 'com.arthenica:smart-exception-java:0.2.1'
 }
